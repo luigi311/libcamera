@@ -35,6 +35,15 @@ private:
 	void setMeteringMode(controls::AfMeteringEnum metering) final;
 	void setWindows(Span<const Rectangle> windows) final;
 
+	void updateCurrentWindow(const Rectangle &window);
+
+	controls::AfMeteringEnum meteringMode_ = controls::AfMeteringAuto;
+	Rectangle defaultWindow_;
+	Rectangle userWindow_;
+	std::optional<Rectangle> updateWindow_;
+	uint32_t ispThreshold_;
+	uint32_t ispVarShift_;
+
 	/* Wait number of frames after changing lens position */
 	uint32_t waitFramesLens_;
 };
