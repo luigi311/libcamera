@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: CC0-1.0
 
+subdir('algorithms')
+
 libipa_headers = files([
     'algorithm.h',
     'camera_sensor_helper.h',
@@ -8,6 +10,8 @@ libipa_headers = files([
     'module.h',
 ])
 
+libipa_headers += common_ipa_algorithms_headers
+
 libipa_sources = files([
     'algorithm.cpp',
     'camera_sensor_helper.cpp',
@@ -15,6 +19,8 @@ libipa_sources = files([
     'histogram.cpp',
     'module.cpp',
 ])
+
+libipa_sources += common_ipa_algorithms_sources
 
 libipa_includes = include_directories('..')
 
