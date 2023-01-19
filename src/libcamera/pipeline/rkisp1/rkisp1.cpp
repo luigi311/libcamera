@@ -32,6 +32,7 @@
 #include <libcamera/ipa/rkisp1_ipa_proxy.h>
 
 #include "libcamera/internal/camera.h"
+#include "libcamera/internal/camera_lens.h"
 #include "libcamera/internal/camera_sensor.h"
 #include "libcamera/internal/delayed_controls.h"
 #include "libcamera/internal/device_enumerator.h"
@@ -819,6 +820,10 @@ int PipelineHandlerRkISP1::configure(Camera *camera, CameraConfiguration *c)
 		return ret;
 
 	ipaConfig.sensorControls = data->sensor_->controls();
+
+	CameraLens *lens = data->sensor_->focusLens();
+	if (lens)
+		ipaConfig.lensControls = lens->controls();
 
 	ret = data->ipa_->configure(ipaConfig, streamConfig, &data->controlInfo_);
 	if (ret) {
