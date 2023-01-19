@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: CC0-1.0
 
+subdir('algorithms')
+
 libipa_headers = files([
     'agc_mean_luminance.h',
     'algorithm.h',
@@ -14,6 +16,8 @@ libipa_headers = files([
     'vector.h',
 ])
 
+libipa_headers += common_ipa_algorithms_headers
+
 libipa_sources = files([
     'agc_mean_luminance.cpp',
     'algorithm.cpp',
@@ -27,6 +31,8 @@ libipa_sources = files([
     'pwl.cpp',
     'vector.cpp',
 ])
+
+libipa_sources += common_ipa_algorithms_sources
 
 libipa_includes = include_directories('..')
 
