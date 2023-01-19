@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <math.h>
+#include <optional>
 #include <queue>
 #include <stdint.h>
 #include <string.h>
@@ -79,6 +80,7 @@ private:
 	std::map<unsigned int, MappedFrameBuffer> mappedBuffers_;
 
 	ControlInfoMap sensorControls_;
+	std::optional<ControlInfoMap> lensControls_;
 
 	/* Local parameter storage */
 	struct IPAContext context_;
@@ -208,6 +210,9 @@ int IPARkISP1::configure(const IPAConfigInfo &ipaConfig,
 			 ControlInfoMap *ipaControls)
 {
 	sensorControls_ = ipaConfig.sensorControls;
+
+	if (!ipaConfig.lensControls.empty())
+		lensControls_ = ipaConfig.lensControls;
 
 	const auto itExp = sensorControls_.find(V4L2_CID_EXPOSURE);
 	int32_t minExposure = itExp->second.min().get<int32_t>();
