@@ -270,6 +270,10 @@ int IPARkISP1::configure(const IPAConfigInfo &ipaConfig,
 			return format.colourEncoding == PixelFormatInfo::ColourEncodingRAW;
 		});
 
+	/* Lens position is unknown at the startup, so initilize the variable
+	 * that holds the current position to something out of the range. */
+	context_.activeState.af.lensPosition = std::numeric_limits<int32_t>::max();
+
 	for (auto const &a : algorithms()) {
 		Algorithm *algo = static_cast<Algorithm *>(a.get());
 
@@ -452,6 +456,14 @@ void IPARkISP1::setControls(unsigned int frame)
 	ctrls.set(V4L2_CID_ANALOGUE_GAIN, static_cast<int32_t>(gain));
 
 	setSensorControls.emit(frame, ctrls);
+
+	if (lensControls_ && context_.activeState.af.applyLensCtrls) {
+		context_.activeState.af.applyLensCtrls = false;
+		ControlList lensCtrls(*lensControls_);
+		lensCtrls.set(V4L2_CID_FOCUS_ABSOLUTE,
+			      static_cast<int32_t>(context_.activeState.af.lensPosition));
+		setLensControls.emit(lensCtrls);
+	}
 }
 
 } /* namespace ipa::rkisp1 */
