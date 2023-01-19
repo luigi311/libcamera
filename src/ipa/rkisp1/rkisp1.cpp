@@ -101,9 +101,11 @@ namespace {
 /* List of controls handled by the RkISP1 IPA */
 const ControlInfoMap::Map rkisp1Controls{
 	{ &controls::AeEnable, ControlInfo(false, true) },
+	{ &controls::AfMetering, ControlInfo(controls::AfMeteringValues) },
 	{ &controls::AfMode, ControlInfo(controls::AfModeValues) },
 	{ &controls::AfPause, ControlInfo(controls::AfPauseValues) },
 	{ &controls::AfTrigger, ControlInfo(controls::AfTriggerValues) },
+	{ &controls::AfWindows, ControlInfo(Rectangle{}, Rectangle(65535, 65535, 65535, 65535), Rectangle{}) },
 	{ &controls::AwbEnable, ControlInfo(false, true) },
 	{ &controls::ColourGains, ControlInfo(0.0f, 3.996f, 1.0f) },
 	{ &controls::Brightness, ControlInfo(-1.0f, 0.993f, 0.0f) },
