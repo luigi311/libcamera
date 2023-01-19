@@ -109,11 +109,15 @@ const IPAHwSettings ipaHwSettingsV12{
 /* List of controls handled by the RkISP1 IPA */
 const ControlInfoMap::Map rkisp1Controls{
 	{ &controls::AeEnable, ControlInfo(false, true) },
+	{ &controls::AfMode, ControlInfo(controls::AfModeValues) },
+	{ &controls::AfPause, ControlInfo(controls::AfPauseValues) },
+	{ &controls::AfTrigger, ControlInfo(controls::AfTriggerValues) },
 	{ &controls::AwbEnable, ControlInfo(false, true) },
 	{ &controls::ColourGains, ControlInfo(0.0f, 3.996f, 1.0f) },
 	{ &controls::Brightness, ControlInfo(-1.0f, 0.993f, 0.0f) },
 	{ &controls::Contrast, ControlInfo(0.0f, 1.993f, 1.0f) },
 	{ &controls::Saturation, ControlInfo(0.0f, 1.993f, 1.0f) },
+	{ &controls::LensPosition, ControlInfo(0.0f, 2147483647.0f) },
 	{ &controls::Sharpness, ControlInfo(0.0f, 10.0f, 1.0f) },
 	{ &controls::draft::NoiseReductionMode, ControlInfo(controls::draft::NoiseReductionModeValues) },
 };
