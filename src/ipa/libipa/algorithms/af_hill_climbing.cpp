@@ -58,6 +58,8 @@ int AfHillClimbing::initBase(const YamlObject &tuningData)
 		       << ", fineRange_: " << fineRange_
 		       << ", maxChange_: " << maxChange_;
 
+	setMode(controls::AfModeContinuous);
+
 	return 0;
 }
 
