@@ -114,18 +114,13 @@ void FileSink::writeBuffer(const Stream *stream, FrameBuffer *buffer,
 	}
 
 	for (unsigned int i = 0; i < buffer->planes().size(); ++i) {
-		/*
-		 * This was formerly a local "const FrameMetadata::Plane &"
-		 * however this causes a false positive warning for dangling
-		 * references on gcc 13.
-		 */
-		const unsigned int bytesused = buffer->metadata().planes()[i].bytesused;
+		const FrameMetadata::Plane &meta = buffer->metadata().planes()[i];
 
 		Span<uint8_t> data = image->data(i);
-		const unsigned int length = std::min<unsigned int>(bytesused, data.size());
+		unsigned int length = std::min<unsigned int>(meta.bytesused, data.size());
 
-		if (bytesused > data.size())
-			std::cerr << "payload size " << bytesused
+		if (meta.bytesused > data.size())
+			std::cerr << "payload size " << meta.bytesused
 				  << " larger than plane size " << data.size()
 				  << std::endl;
 

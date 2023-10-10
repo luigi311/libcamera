@@ -69,6 +69,8 @@ enum class StreamRole {
 	Viewfinder,
 };
 
+using StreamRoles = std::vector<StreamRole>;
+
 std::ostream &operator<<(std::ostream &out, StreamRole role);
 
 class Stream

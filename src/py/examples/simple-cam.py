@@ -259,7 +259,12 @@ def main():
     allocator = libcam.FrameBufferAllocator(camera)
 
     for cfg in config:
-        allocated = allocator.allocate(cfg.stream)
+        ret = allocator.allocate(cfg.stream)
+        if ret < 0:
+            print('Can\'t allocate buffers')
+            return -1
+
+        allocated = len(allocator.buffers(cfg.stream))
         print(f'Allocated {allocated} buffers for stream')
 
     # --------------------------------------------------------------------
@@ -284,9 +289,15 @@ def main():
     requests = []
     for i in range(len(buffers)):
         request = camera.create_request()
+        if not request:
+            print('Can\'t create request')
+            return -1
 
         buffer = buffers[i]
-        request.add_buffer(stream, buffer)
+        ret = request.add_buffer(stream, buffer)
+        if ret < 0:
+            print('Can\'t set buffer for request')
+            return -1
 
         # Controls can be added to a request on a per frame basis.
         request.set_control(libcam.controls.Brightness, 0.5)

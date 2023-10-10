@@ -47,7 +47,15 @@ A C++ toolchain: [required]
         Either {g++, clang}
 
 Meson Build system: [required]
-        meson (>= 0.57) ninja-build pkg-config
+        meson (>= 0.56) ninja-build pkg-config
+
+        If your distribution doesn't provide a recent enough version of meson,
+        you can install or upgrade it using pip3.
+
+        .. code::
+
+            pip3 install --user meson
+            pip3 install --user --upgrade meson
 
 for the libcamera core: [required]
         libyaml-dev python3-yaml python3-ply python3-jinja2
@@ -95,9 +103,6 @@ for android: [optional]
 
 for lc-compliance: [optional]
         libevent-dev
-
-for abi-compat.sh: [optional]
-        abi-compliance-checker
 
 Basic testing with cam utility
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

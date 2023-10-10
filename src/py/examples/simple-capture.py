@@ -43,7 +43,8 @@ def main():
 
     # Acquire the camera for our use
 
-    cam.acquire()
+    ret = cam.acquire()
+    assert ret == 0
 
     # Configure the camera
 
@@ -59,7 +60,8 @@ def main():
         w, h = [int(v) for v in args.size.split('x')]
         stream_config.size = libcam.Size(w, h)
 
-    cam.configure(cam_config)
+    ret = cam.configure(cam_config)
+    assert ret == 0
 
     print(f'Capturing {TOTAL_FRAMES} frames with {stream_config}')
 
@@ -81,13 +83,15 @@ def main():
         req = cam.create_request(i)
 
         buffer = allocator.buffers(stream)[i]
-        req.add_buffer(stream, buffer)
+        ret = req.add_buffer(stream, buffer)
+        assert ret == 0
 
         reqs.append(req)
 
     # Start the camera
 
-    cam.start()
+    ret = cam.start()
+    assert ret == 0
 
     # frames_queued and frames_done track the number of frames queued and done
 
@@ -97,7 +101,8 @@ def main():
     # Queue the requests to the camera
 
     for req in reqs:
-        cam.queue_request(req)
+        ret = cam.queue_request(req)
+        assert ret == 0
         frames_queued += 1
 
     # The main loop. Wait for the queued Requests to complete, process them,
@@ -150,11 +155,13 @@ def main():
 
     # Stop the camera
 
-    cam.stop()
+    ret = cam.stop()
+    assert ret == 0
 
     # Release the camera
 
-    cam.release()
+    ret = cam.release()
+    assert ret == 0
 
     return 0
 

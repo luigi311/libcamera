@@ -127,7 +127,8 @@ void RkISP1Path::populateFormats()
 }
 
 StreamConfiguration
-RkISP1Path::generateConfiguration(const CameraSensor *sensor, const Size &size,
+RkISP1Path::generateConfiguration(const CameraSensor *sensor,
+				  const Size &size,
 				  StreamRole role)
 {
 	const std::vector<unsigned int> &mbusCodes = sensor->mbusCodes();
@@ -171,8 +172,7 @@ RkISP1Path::generateConfiguration(const CameraSensor *sensor, const Size &size,
 
 		/* Add all the RAW sizes the sensor can produce for this code. */
 		for (const auto &rawSize : sensor->sizes(mbusCode)) {
-			if (rawSize.width > maxResolution_.width ||
-			    rawSize.height > maxResolution_.height)
+			if (rawSize > maxResolution_)
 				continue;
 
 			streamFormats[format].push_back({ rawSize, rawSize });
@@ -335,18 +335,7 @@ int RkISP1Path::configure(const StreamConfiguration &config,
 	if (ret < 0)
 		return ret;
 
-	/*
-	 * Crop on the resizer input to maintain FOV before downscaling.
-	 *
-	 * \todo The alignment to a multiple of 2 pixels is required but may
-	 * change the aspect ratio very slightly. A more advanced algorithm to
-	 * compute the resizer input crop rectangle is needed, and it should
-	 * also take into account the need to crop away the edge pixels affected
-	 * by the ISP processing blocks.
-	 */
-	Size ispCrop = inputFormat.size.boundedToAspectRatio(config.size)
-				       .alignedUpTo(2, 2);
-	Rectangle rect = ispCrop.centeredTo(Rectangle(inputFormat.size).center());
+	Rectangle rect(0, 0, ispFormat.size);
 	ret = resizer_->setSelection(0, V4L2_SEL_TGT_CROP, &rect);
 	if (ret < 0)
 		return ret;

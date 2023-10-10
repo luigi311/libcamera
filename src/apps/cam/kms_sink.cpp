@@ -303,22 +303,24 @@ int KMSSink::configurePipeline(const libcamera::PixelFormat &format)
 
 int KMSSink::start()
 {
+	std::unique_ptr<DRM::AtomicRequest> request;
+
 	int ret = FrameSink::start();
 	if (ret < 0)
 		return ret;
 
 	/* Disable all CRTCs and planes to start from a known valid state. */
-	DRM::AtomicRequest request(&dev_);
+	request = std::make_unique<DRM::AtomicRequest>(&dev_);
 
 	for (const DRM::Crtc &crtc : dev_.crtcs())
-		request.addProperty(&crtc, "ACTIVE", 0);
+		request->addProperty(&crtc, "ACTIVE", 0);
 
 	for (const DRM::Plane &plane : dev_.planes()) {
-		request.addProperty(&plane, "CRTC_ID", 0);
-		request.addProperty(&plane, "FB_ID", 0);
+		request->addProperty(&plane, "CRTC_ID", 0);
+		request->addProperty(&plane, "FB_ID", 0);
 	}
 
-	ret = request.commit(DRM::AtomicRequest::FlagAllowModeset);
+	ret = request->commit(DRM::AtomicRequest::FlagAllowModeset);
 	if (ret < 0) {
 		std::cerr
 			<< "Failed to disable CRTCs and planes: "

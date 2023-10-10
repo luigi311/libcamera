@@ -28,7 +28,8 @@ class CameraCaptureContext:
 
         # Acquire the camera for our use
 
-        cam.acquire()
+        ret = cam.acquire()
+        assert ret == 0
 
         # Configure the camera
 
@@ -36,7 +37,8 @@ class CameraCaptureContext:
 
         stream_config = cam_config.at(0)
 
-        cam.configure(cam_config)
+        ret = cam.configure(cam_config)
+        assert ret == 0
 
         stream = stream_config.stream
 
@@ -60,7 +62,8 @@ class CameraCaptureContext:
             req = cam.create_request(idx)
 
             buffer = allocator.buffers(stream)[i]
-            req.add_buffer(stream, buffer)
+            ret = req.add_buffer(stream, buffer)
+            assert ret == 0
 
             self.reqs.append(req)
 
@@ -70,11 +73,13 @@ class CameraCaptureContext:
     def uninit_camera(self):
         # Stop the camera
 
-        self.cam.stop()
+        ret = self.cam.stop()
+        assert ret == 0
 
         # Release the camera
 
-        self.cam.release()
+        ret = self.cam.release()
+        assert ret == 0
 
 
 # A container class for our state
@@ -140,7 +145,8 @@ class CaptureContext:
 
         for cam_ctx in self.camera_contexts:
             for req in cam_ctx.reqs:
-                cam_ctx.cam.queue_request(req)
+                ret = cam_ctx.cam.queue_request(req)
+                assert ret == 0
 
         # Use Selector to wait for events from the camera and from the keyboard
 
@@ -171,7 +177,8 @@ def main():
     # Start the cameras
 
     for cam_ctx in ctx.camera_contexts:
-        cam_ctx.cam.start()
+        ret = cam_ctx.cam.start()
+        assert ret == 0
 
     ctx.capture()
 

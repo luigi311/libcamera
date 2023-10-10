@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: CC0-1.0
 
 project('libcamera', 'c', 'cpp',
-    meson_version : '>= 0.57',
-    version : '0.1.0',
+    meson_version : '>= 0.56',
+    version : '0.0.4',
     default_options : [
         'werror=true',
         'warning_level=2',
@@ -11,58 +11,52 @@ project('libcamera', 'c', 'cpp',
     license : 'LGPL 2.1+')
 
 # Generate version information. The libcamera_git_version variable contains the
-# full version with build metadata (patch count and SHA1, e.g.
-# 1.2.3+211-c94a24f4), while the libcamera_version variable contains the
-# major.minor.patch (e.g. 1.2.3) only.
-#
-# If the source tree matches the last git version tag, the build metadata
-# (e.g. +211-c94a24f4) is omitted from libcamera_git_version.
+# full version with git patch count and SHA1 (e.g. 1.2.3+211-c94a24f4), while
+# the libcamera_version variable contains the major.minor.patch (e.g. 1.2.3)
+# only. If the source tree isn't under git control, or if it matches the last
+# git version tag, the build metadata (e.g. +211-c94a24f4) is omitted from
+# libcamera_git_version.
 libcamera_git_version = run_command('utils/gen-version.sh',
                                     meson.project_build_root(),
                                     meson.project_source_root(),
-                                    check : false).stdout().strip()
-
-# If the source tree isn't under git control, set libcamera_git_version to the
-# meson project version.
+                                    check: false).stdout().strip()
 if libcamera_git_version == ''
     libcamera_git_version = meson.project_version()
 endif
 
 libcamera_version = libcamera_git_version.split('+')[0]
-project_version = meson.project_version().split('+')[0]
 
 # A shallow clone, or a clone without a reachable tag equivalent to the
 # meson.project_version() could leave the project in a mis-described state.
 # Produce a warning in this event, and fix to a best effort.
-if libcamera_version != project_version
-    warning('The sources and meson.build disagree about the version: '
-            + libcamera_version + ' != ' + project_version)
+if libcamera_version != meson.project_version()
+    warning('The sources disagree about the version: '
+            + libcamera_version + ' != ' + meson.project_version())
 
     summary({'libcamera git version' : libcamera_git_version,
              'Source version match' : false,
             },
             bool_yn : true, section : 'Versions')
 
-    # Re-run gen-version.sh to replace the git version (major.minor.patch) with
-    # the meson project version. The build metadata provided by git are kept.
-    libcamera_git_version = run_command('utils/gen-version.sh',
-                                        meson.project_build_root(),
-                                        meson.project_source_root(),
-                                        project_version,
-                                        check : false).stdout().strip()
-    libcamera_version = project_version
+    # Replace the version components reported by git with the release version,
+    # but keep all trailing information supplied by git.
+    libcamera_git_version = (meson.project_version() +
+                             libcamera_git_version.strip(libcamera_version))
+    libcamera_version = meson.project_version()
 
-    # Append a marker to show we have modified this version string.
+    # Append a marker to show we have modified this version string
     libcamera_git_version += '-nvm'
 endif
 
-# The major and minor libcamera version components are used as the soname.
-# No ABI/API compatibility is guaranteed between releases (x.y).
+# Until we make ABI compatible releases, the full libcamera version is used as
+# the soname. No ABI/API compatibility is guaranteed between releases (x.y.z).
+#
+# When automatic ABI based detection is used to increment the version, this
+# will bump the minor number (x.y).
 #
 # When we declare a stable ABI/API we will provide a 1.0 release and the
 # soversion at that point will be the 'major' release value (x).
-semver = libcamera_version.split('.')
-libcamera_soversion = semver[0] + '.' + semver[1]
+libcamera_soversion = libcamera_version
 
 summary({ 'Sources': libcamera_git_version, }, section : 'Versions')
 
@@ -99,23 +93,17 @@ if cc.get_id() == 'clang'
         error('clang version is too old, libcamera requires 9.0 or newer')
     endif
 
-    # Turn _FORTIFY_SOURCE by default on. This is needed on clang only as gcc
-    # enables it by default. FORTIFY will not work properly with `-O0`, and may
-    # result in macro redefinition errors if the user already has a setting for
-    # `-D_FORTIFY_SOURCE`. Do not enable FORTIFY in either of those cases.
+    # Turn _FORTIFY_SOURCE by default on optimised builds (as it requires -O1
+    # or higher). This is needed on clang only as gcc enables it by default.
     if get_option('optimization') != '0'
-        fortify = cc.get_define('_FORTIFY_SOURCE')
-        if fortify == ''
-            message('Adding _FORTIFY_SOURCE')
-            common_arguments += [
-                '-D_FORTIFY_SOURCE=2',
-            ]
-        endif
+        common_arguments += [
+            '-D_FORTIFY_SOURCE=2',
+        ]
     endif
 
     # Use libc++ by default if available instead of libstdc++ when compiling
     # with clang.
-    if cc.find_library('c++', required : false).found()
+    if cc.find_library('libc++', required: false).found()
         cpp_arguments += [
             '-stdlib=libc++',
         ]
@@ -137,21 +125,6 @@ if cc.get_id() == 'gcc'
     if cc.version().version_compare('<9')
         cpp_arguments += [
             '-lstdc++fs',
-        ]
-    endif
-
-    # gcc 13 implements the C++23 version of automatic move from local
-    # variables in return statements (see
-    # https://en.cppreference.com/w/cpp/language/return). As a result, some
-    # previously required explicit std::move() in return statements generate
-    # warnings. Those moves can't be removed as older compiler versions could
-    # use copy constructors instead of move constructors. The easiest fix is to
-    # disable the warning. With -Wpessimizing-move enabled, the compiler will
-    # still warn of pessimizing moves, only the redundant but not pessimizing
-    # moves will be ignored.
-    if cc.version().version_compare('>=13')
-        cpp_arguments += [
-            '-Wno-redundant-move',
         ]
     endif
 
@@ -198,8 +171,8 @@ arch_x86 = ['x86', 'x86_64']
 pipelines_support = {
     'imx8-isi':     arch_arm,
     'ipu3':         arch_x86,
+    'raspberrypi':  arch_arm,
     'rkisp1':       arch_arm,
-    'rpi/vc4':      arch_arm,
     'simple':       arch_arm,
     'uvcvideo':     ['any'],
     'vimc':         ['test'],
@@ -242,7 +215,7 @@ subdir('test')
 
 if not meson.is_cross_build()
     kernel_version_req = '>= 5.0.0'
-    kernel_version = run_command('uname', '-r', check : true).stdout().strip()
+    kernel_version = run_command('uname', '-r', check: true).stdout().strip()
     if not kernel_version.version_compare(kernel_version_req)
         warning('The current running kernel version @0@ is too old to run libcamera.'
                 .format(kernel_version))
@@ -255,19 +228,18 @@ endif
 # running libcamera from the build directory to locate resources in the source
 # directory (such as IPA configuration files).
 run_command('ln', '-fsT', meson.project_source_root(), meson.project_build_root() / 'source',
-            check : true)
+            check: true)
 
 configure_file(output : 'config.h', configuration : config_h)
 
 # Check for python installation and modules.
 py_mod = import('python')
-py_mod.find_installation('python3', modules : py_modules)
+py_mod.find_installation('python3', modules: py_modules)
 
 ## Summarise Configurations
 summary({
             'Enabled pipelines': pipelines,
-            'Enabled IPA modules': enabled_ipa_names,
-            'Hotplug support': libudev.found(),
+            'Enabled IPA modules': enabled_ipa_modules,
             'Tracing support': tracing_enabled,
             'Android support': android_enabled,
             'GStreamer support': gst_enabled,

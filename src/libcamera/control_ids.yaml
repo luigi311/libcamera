@@ -156,79 +156,6 @@ controls:
         control of which features should be automatically adjusted shouldn't
         better be handled through a separate AE mode control.
 
-  - AeFlickerMode:
-      type: int32_t
-      description: |
-        Set the flicker mode, which determines whether, and how, the AGC/AEC
-        algorithm attempts to hide flicker effects caused by the duty cycle of
-        artificial lighting.
-
-        Although implementation dependent, many algorithms for "flicker
-        avoidance" work by restricting this exposure time to integer multiples
-        of the cycle period, wherever possible.
-
-        Implementations may not support all of the flicker modes listed below.
-
-        By default the system will start in FlickerAuto mode if this is
-        supported, otherwise the flicker mode will be set to FlickerOff.
-
-      enum:
-        - name: FlickerOff
-          value: 0
-          description: No flicker avoidance is performed.
-        - name: FlickerManual
-          value: 1
-          description: Manual flicker avoidance.
-            Suppress flicker effects caused by lighting running with a period
-            specified by the AeFlickerPeriod control.
-            \sa AeFlickerPeriod
-        - name: FlickerAuto
-          value: 2
-          description: Automatic flicker period detection and avoidance.
-            The system will automatically determine the most likely value of
-            flicker period, and avoid flicker of this frequency. Once flicker
-            is being corrected, it is implementation dependent whether the
-            system is still able to detect a change in the flicker period.
-            \sa AeFlickerDetected
-
-  - AeFlickerPeriod:
-      type: int32_t
-      description: Manual flicker period in microseconds.
-        This value sets the current flicker period to avoid. It is used when
-        AeFlickerMode is set to FlickerManual.
-
-        To cancel 50Hz mains flicker, this should be set to 10000 (corresponding
-        to 100Hz), or 8333 (120Hz) for 60Hz mains.
-
-        Setting the mode to FlickerManual when no AeFlickerPeriod has ever been
-        set means that no flicker cancellation occurs (until the value of this
-        control is updated).
-
-        Switching to modes other than FlickerManual has no effect on the
-        value of the AeFlickerPeriod control.
-
-        \sa AeFlickerMode
-
-  - AeFlickerDetected:
-      type: int32_t
-      description: Flicker period detected in microseconds.
-        The value reported here indicates the currently detected flicker
-        period, or zero if no flicker at all is detected.
-
-        When AeFlickerMode is set to FlickerAuto, there may be a period during
-        which the value reported here remains zero. Once a non-zero value is
-        reported, then this is the flicker period that has been detected and is
-        now being cancelled.
-
-        In the case of 50Hz mains flicker, the value would be 10000
-        (corresponding to 100Hz), or 8333 (120Hz) for 60Hz mains flicker.
-
-        It is implementation dependent whether the system can continue to detect
-        flicker of different periods when another frequency is already being
-        cancelled.
-
-        \sa AeFlickerMode
-
   - Brightness:
       type: float
       description: |
@@ -348,12 +275,12 @@ controls:
       type: int32_t
       description: |
         Reports a Figure of Merit (FoM) to indicate how in-focus the frame is.
-        A larger FocusFoM value indicates a more in-focus frame. This singular
-        value may be based on a combination of statistics gathered from
-        multiple focus regions within an image. The number of focus regions and
-        method of combination is platform dependent. In this respect, it is not
-        necessarily aimed at providing a way to implement a focus algorithm by
-        the application, rather an indication of how in-focus a frame is.
+        A larger FocusFoM value indicates a more in-focus frame. This control
+        depends on the IPA to gather ISP statistics from the defined focus
+        region, and combine them in a suitable way to generate a FocusFoM value.
+        In this respect, it is not necessarily aimed at providing a way to
+        implement a focus algorithm by the application, rather an indication of
+        how in-focus a frame is.
 
   - ColourCorrectionMatrix:
       type: float
@@ -406,8 +333,8 @@ controls:
   - FrameDurationLimits:
       type: int64_t
       description: |
-        The minimum and maximum (in that order) frame duration, expressed in
-        microseconds.
+        The minimum and maximum (in that order) frame duration,
+        expressed in microseconds.
 
         When provided by applications, the control specifies the sensor frame
         duration interval the pipeline has to use. This limits the largest
@@ -416,7 +343,7 @@ controls:
         the sensor will not be able to raise the exposure time above 33ms.
         A fixed frame duration is achieved by setting the minimum and maximum
         values to be the same. Setting both values to 0 reverts to using the
-        camera defaults.
+        IPA provided defaults.
 
         The maximum frame duration provides the absolute limit to the shutter
         speed computed by the AE algorithm and it overrides any exposure mode
@@ -481,13 +408,6 @@ controls:
             LensPosition control.
 
             In this mode the AfState will always report AfStateIdle.
-
-            If the camera is started in AfModeManual, it will move the focus
-            lens to the position specified by the LensPosition control.
-
-            This mode is the recommended default value for the AfMode control.
-            External cameras (as reported by the Location property set to
-            CameraLocationExternal) may use a different default value.
         - name: AfModeAuto
           value: 1
           description: |
@@ -922,6 +842,23 @@ controls:
         - name: LensShadingMapModeOn
           value: 1
           description: The lens shading map mode is available.
+
+  - SceneFlicker:
+      type: int32_t
+      draft: true
+      description: |
+       Control to report the detected scene light frequency. Currently
+       identical to ANDROID_STATISTICS_SCENE_FLICKER.
+      enum:
+        - name: SceneFickerOff
+          value: 0
+          description: No flickering detected.
+        - name: SceneFicker50Hz
+          value: 1
+          description: 50Hz flickering detected.
+        - name: SceneFicker60Hz
+          value: 2
+          description: 60Hz flickering detected.
 
   - PipelineDepth:
       type: int32_t

@@ -158,7 +158,9 @@ class CameraContext:
 
             print('Camera configuration adjusted')
 
-        self.camera.configure(camconfig)
+        r = self.camera.configure(camconfig)
+        if r != 0:
+            raise Exception('Configure failed')
 
         self.stream_names = {}
         self.streams = []
@@ -173,7 +175,12 @@ class CameraContext:
         allocator = libcam.FrameBufferAllocator(self.camera)
 
         for stream in self.streams:
-            allocated = allocator.allocate(stream)
+            ret = allocator.allocate(stream)
+            if ret < 0:
+                print('Cannot allocate buffers')
+                exit(-1)
+
+            allocated = len(allocator.buffers(stream))
 
             print('{}-{}: Allocated {} buffers'.format(self.id, self.stream_names[stream], allocated))
 
@@ -198,7 +205,10 @@ class CameraContext:
                 buffers = self.allocator.buffers(stream)
                 buffer = buffers[buf_num]
 
-                request.add_buffer(stream, buffer)
+                ret = request.add_buffer(stream, buffer)
+                if ret < 0:
+                    print('Can not set buffer for request')
+                    exit(-1)
 
             requests.append(request)
 

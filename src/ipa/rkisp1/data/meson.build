@@ -4,6 +4,7 @@ conf_files = files([
     'imx219.yaml',
     'ov4689.yaml',
     'ov5640.yaml',
+    'ov5675.yaml',
     'uncalibrated.yaml',
 ])
 

@@ -36,8 +36,14 @@ namespace ipa::rkisp1::algorithms {
 
 LOG_DEFINE_CATEGORY(RkISP1Agc)
 
-/* Minimum limit for analogue gain value */
+/*
+ * Limits for analogue gain values
+ *
+ * \todo Remove the hard-coded limits and let the sensor helper specify
+ * the minimum and maximum allowed gain values.
+ */
 static constexpr double kMinAnalogueGain = 1.0;
+static constexpr double kMaxAnalogueGain = 16.0;
 
 /* \todo Honour the FrameDurationLimits control instead of hardcoding a limit */
 static constexpr utils::Duration kMaxShutterSpeed = 60ms;
@@ -74,7 +80,9 @@ Agc::Agc()
 int Agc::configure(IPAContext &context, const IPACameraSensorInfo &configInfo)
 {
 	/* Configure the default exposure and gain. */
-	context.activeState.agc.automatic.gain = context.configuration.sensor.minAnalogueGain;
+	context.activeState.agc.automatic.gain =
+		std::max(context.configuration.sensor.minAnalogueGain,
+			 kMinAnalogueGain);
 	context.activeState.agc.automatic.exposure =
 		10ms / context.configuration.sensor.lineDuration;
 	context.activeState.agc.manual.gain = context.activeState.agc.automatic.gain;
@@ -259,7 +267,8 @@ void Agc::computeExposure(IPAContext &context, IPAFrameContext &frameContext,
 
 	double minAnalogueGain = std::max(configuration.sensor.minAnalogueGain,
 					  kMinAnalogueGain);
-	double maxAnalogueGain = configuration.sensor.maxAnalogueGain;
+	double maxAnalogueGain = std::min(configuration.sensor.maxAnalogueGain,
+					  kMaxAnalogueGain);
 
 	/* Consider within 1% of the target as correctly exposed. */
 	if (utils::abs_diff(evGain, 1.0) < 0.01)

@@ -32,6 +32,7 @@
 #include <libcamera/ipa/rkisp1_ipa_proxy.h>
 
 #include "libcamera/internal/camera.h"
+#include "libcamera/internal/camera_lens.h"
 #include "libcamera/internal/camera_sensor.h"
 #include "libcamera/internal/delayed_controls.h"
 #include "libcamera/internal/device_enumerator.h"
@@ -113,6 +114,7 @@ private:
 	void paramFilled(unsigned int frame);
 	void setSensorControls(unsigned int frame,
 			       const ControlList &sensorControls);
+	void setLensControls(const ControlList &lensControls);
 
 	void metadataReady(unsigned int frame, const ControlList &metadata);
 };
@@ -148,7 +150,7 @@ public:
 	PipelineHandlerRkISP1(CameraManager *manager);
 
 	std::unique_ptr<CameraConfiguration> generateConfiguration(Camera *camera,
-								   Span<const StreamRole> roles) override;
+		const StreamRoles &roles) override;
 	int configure(Camera *camera, CameraConfiguration *config) override;
 
 	int exportFrameBuffers(Camera *camera, Stream *stream,
@@ -341,6 +343,7 @@ int RkISP1CameraData::loadIPA(unsigned int hwRevision)
 		return -ENOENT;
 
 	ipa_->setSensorControls.connect(this, &RkISP1CameraData::setSensorControls);
+	ipa_->setLensControls.connect(this, &RkISP1CameraData::setLensControls);
 	ipa_->paramsBufferReady.connect(this, &RkISP1CameraData::paramFilled);
 	ipa_->metadataReady.connect(this, &RkISP1CameraData::metadataReady);
 
@@ -402,6 +405,20 @@ void RkISP1CameraData::setSensorControls([[maybe_unused]] unsigned int frame,
 					 const ControlList &sensorControls)
 {
 	delayedCtrls_->push(sensorControls);
+}
+
+void RkISP1CameraData::setLensControls(const ControlList &lensControls)
+{
+	CameraLens *focusLens = sensor_->focusLens();
+	if (!focusLens)
+		return;
+
+	if (!lensControls.contains(V4L2_CID_FOCUS_ABSOLUTE))
+		return;
+
+	const ControlValue &focusValue = lensControls.get(V4L2_CID_FOCUS_ABSOLUTE);
+
+	focusLens->setFocusPosition(focusValue.get<int32_t>());
 }
 
 void RkISP1CameraData::metadataReady(unsigned int frame, const ControlList &metadata)
@@ -611,7 +628,7 @@ PipelineHandlerRkISP1::PipelineHandlerRkISP1(CameraManager *manager)
 
 std::unique_ptr<CameraConfiguration>
 PipelineHandlerRkISP1::generateConfiguration(Camera *camera,
-					     Span<const StreamRole> roles)
+	const StreamRoles &roles)
 {
 	RkISP1CameraData *data = cameraData(camera);
 
@@ -626,6 +643,10 @@ PipelineHandlerRkISP1::generateConfiguration(Camera *camera,
 	if (roles.empty())
 		return config;
 
+	/* If still capture is requested, reserve the main path for it. */
+	bool reserveMainPath = std::find(roles.cbegin(), roles.cend(),
+					 StreamRole::StillCapture) != roles.cend();
+
 	/*
 	 * As the ISP can't output different color spaces for the main and self
 	 * path, pick a sensible default color space based on the role of the
@@ -635,6 +656,7 @@ PipelineHandlerRkISP1::generateConfiguration(Camera *camera,
 	bool mainPathAvailable = true;
 
 	for (const StreamRole role : roles) {
+		bool useMainPath = mainPathAvailable;
 		Size size;
 
 		switch (role) {
@@ -642,6 +664,9 @@ PipelineHandlerRkISP1::generateConfiguration(Camera *camera,
 			/* JPEG encoders typically expect sYCC. */
 			if (!colorSpace)
 				colorSpace = ColorSpace::Sycc;
+
+			/* Unlock usage of main path which was reserved. */
+			reserveMainPath = false;
 
 			size = data->sensor_->resolution();
 			break;
@@ -682,17 +707,9 @@ PipelineHandlerRkISP1::generateConfiguration(Camera *camera,
 			return nullptr;
 		}
 
-		/*
-		 * Prefer the main path if available, as it supports higher
-		 * resolutions.
-		 *
-		 * \todo Using the main path unconditionally hides support for
-		 * RGB (only available on the self path) in the streams formats
-		 * exposed to applications. This likely calls for a better API
-		 * to expose streams capabilities.
-		 */
 		RkISP1Path *path;
-		if (mainPathAvailable) {
+
+		if (useMainPath && !reserveMainPath) {
 			path = data->mainPath_;
 			mainPathAvailable = false;
 		} else {
@@ -821,6 +838,10 @@ int PipelineHandlerRkISP1::configure(Camera *camera, CameraConfiguration *c)
 		return ret;
 
 	ipaConfig.sensorControls = data->sensor_->controls();
+
+	CameraLens *lens = data->sensor_->focusLens();
+	if (lens)
+		ipaConfig.lensControls = lens->controls();
 
 	ret = data->ipa_->configure(ipaConfig, streamConfig, &data->controlInfo_);
 	if (ret) {

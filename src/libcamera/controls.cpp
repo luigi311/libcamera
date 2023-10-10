@@ -677,9 +677,6 @@ ControlInfoMap::ControlInfoMap(Map &&info, const ControlIdMap &idmap)
 
 bool ControlInfoMap::validate()
 {
-	if (!idmap_)
-		return false;
-
 	for (const auto &ctrl : *this) {
 		const ControlId *id = ctrl.first;
 		auto it = idmap_->find(id->id());
@@ -722,8 +719,6 @@ bool ControlInfoMap::validate()
  */
 ControlInfoMap::mapped_type &ControlInfoMap::at(unsigned int id)
 {
-	ASSERT(idmap_);
-
 	return at(idmap_->at(id));
 }
 
@@ -734,8 +729,6 @@ ControlInfoMap::mapped_type &ControlInfoMap::at(unsigned int id)
  */
 const ControlInfoMap::mapped_type &ControlInfoMap::at(unsigned int id) const
 {
-	ASSERT(idmap_);
-
 	return at(idmap_->at(id));
 }
 
@@ -746,9 +739,6 @@ const ControlInfoMap::mapped_type &ControlInfoMap::at(unsigned int id) const
  */
 ControlInfoMap::size_type ControlInfoMap::count(unsigned int id) const
 {
-	if (!idmap_)
-		return 0;
-
 	/*
 	 * The ControlInfoMap and its idmap have a 1:1 mapping between their
 	 * entries, we can thus just count the matching entries in idmap to
@@ -765,9 +755,6 @@ ControlInfoMap::size_type ControlInfoMap::count(unsigned int id) const
  */
 ControlInfoMap::iterator ControlInfoMap::find(unsigned int id)
 {
-	if (!idmap_)
-		return end();
-
 	auto iter = idmap_->find(id);
 	if (iter == idmap_->end())
 		return end();
@@ -783,9 +770,6 @@ ControlInfoMap::iterator ControlInfoMap::find(unsigned int id)
  */
 ControlInfoMap::const_iterator ControlInfoMap::find(unsigned int id) const
 {
-	if (!idmap_)
-		return end();
-
 	auto iter = idmap_->find(id);
 	if (iter == idmap_->end())
 		return end();

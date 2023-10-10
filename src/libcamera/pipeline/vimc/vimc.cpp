@@ -85,7 +85,7 @@ public:
 	PipelineHandlerVimc(CameraManager *manager);
 
 	std::unique_ptr<CameraConfiguration> generateConfiguration(Camera *camera,
-								   Span<const StreamRole> roles) override;
+		const StreamRoles &roles) override;
 	int configure(Camera *camera, CameraConfiguration *config) override;
 
 	int exportFrameBuffers(Camera *camera, Stream *stream,
@@ -191,7 +191,7 @@ PipelineHandlerVimc::PipelineHandlerVimc(CameraManager *manager)
 
 std::unique_ptr<CameraConfiguration>
 PipelineHandlerVimc::generateConfiguration(Camera *camera,
-					   Span<const StreamRole> roles)
+	const StreamRoles &roles)
 {
 	VimcCameraData *data = cameraData(camera);
 	std::unique_ptr<CameraConfiguration> config =

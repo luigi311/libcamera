@@ -49,7 +49,7 @@ public:
 	void release(Camera *camera);
 
 	virtual std::unique_ptr<CameraConfiguration> generateConfiguration(Camera *camera,
-									   Span<const StreamRole> roles) = 0;
+		const StreamRoles &roles) = 0;
 	virtual int configure(Camera *camera, CameraConfiguration *config) = 0;
 
 	virtual int exportFrameBuffers(Camera *camera, Stream *stream,

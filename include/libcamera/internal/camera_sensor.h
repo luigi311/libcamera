@@ -29,7 +29,6 @@ namespace libcamera {
 class BayerFormat;
 class CameraLens;
 class MediaEntity;
-class SensorConfiguration;
 
 struct CameraSensorProperties;
 
@@ -57,11 +56,6 @@ public:
 				      const Size &size) const;
 	int setFormat(V4L2SubdeviceFormat *format,
 		      Transform transform = Transform::Identity);
-	int tryFormat(V4L2SubdeviceFormat *format) const;
-
-	int applyConfiguration(const SensorConfiguration &config,
-			       Transform transform = Transform::Identity,
-			       V4L2SubdeviceFormat *sensorFormat = nullptr);
 
 	const ControlInfoMap &controls() const;
 	ControlList getControls(const std::vector<uint32_t> &ids);

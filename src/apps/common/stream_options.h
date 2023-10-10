@@ -20,7 +20,7 @@ public:
 
 	KeyValueParser::Options parse(const char *arguments) override;
 
-	static std::vector<libcamera::StreamRole> roles(const OptionValue &values);
+	static libcamera::StreamRoles roles(const OptionValue &values);
 	static int updateConfiguration(libcamera::CameraConfiguration *config,
 				       const OptionValue &values);
 

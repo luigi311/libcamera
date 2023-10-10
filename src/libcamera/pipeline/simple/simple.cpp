@@ -190,9 +190,7 @@ struct SimplePipelineInfo {
 namespace {
 
 static const SimplePipelineInfo supportedDevices[] = {
-	{ "dcmipp", {} },
 	{ "imx7-csi", { { "pxp", 1 } } },
-	{ "j721e-csi2rx", {} },
 	{ "mxc-isi", {} },
 	{ "qcom-camss", {} },
 	{ "sun6i-csi", {} },
@@ -213,8 +211,7 @@ public:
 	int init();
 	int setupLinks();
 	int setupFormats(V4L2SubdeviceFormat *format,
-			 V4L2Subdevice::Whence whence,
-			 Transform transform = Transform::Identity);
+			 V4L2Subdevice::Whence whence);
 	void bufferReady(FrameBuffer *buffer);
 
 	unsigned int streamIndex(const Stream *stream) const
@@ -295,7 +292,6 @@ public:
 	}
 
 	bool needConversion() const { return needConversion_; }
-	const Transform &combinedTransform() const { return combinedTransform_; }
 
 private:
 	/*
@@ -308,7 +304,6 @@ private:
 
 	const SimpleCameraData::Configuration *pipeConfig_;
 	bool needConversion_;
-	Transform combinedTransform_;
 };
 
 class SimplePipelineHandler : public PipelineHandler
@@ -317,7 +312,7 @@ public:
 	SimplePipelineHandler(CameraManager *manager);
 
 	std::unique_ptr<CameraConfiguration> generateConfiguration(Camera *camera,
-								   Span<const StreamRole> roles) override;
+		const StreamRoles &roles) override;
 	int configure(Camera *camera, CameraConfiguration *config) override;
 
 	int exportFrameBuffers(Camera *camera, Stream *stream,
@@ -498,7 +493,7 @@ int SimpleCameraData::init()
 	MediaDevice *converter = pipe->converter();
 	if (converter) {
 		converter_ = ConverterFactoryBase::create(converter);
-		if (!converter_) {
+		if (!converter_->isValid()) {
 			LOG(SimplePipeline, Warning)
 				<< "Failed to create converter, disabling format conversion";
 			converter_.reset();
@@ -669,8 +664,7 @@ int SimpleCameraData::setupLinks()
 }
 
 int SimpleCameraData::setupFormats(V4L2SubdeviceFormat *format,
-				   V4L2Subdevice::Whence whence,
-				   Transform transform)
+				   V4L2Subdevice::Whence whence)
 {
 	SimplePipelineHandler *pipe = SimpleCameraData::pipe();
 	int ret;
@@ -679,7 +673,7 @@ int SimpleCameraData::setupFormats(V4L2SubdeviceFormat *format,
 	 * Configure the format on the sensor output and propagate it through
 	 * the pipeline.
 	 */
-	ret = sensor_->setFormat(format, transform);
+	ret = sensor_->setFormat(format);
 	if (ret < 0)
 		return ret;
 
@@ -883,16 +877,15 @@ SimpleCameraConfiguration::SimpleCameraConfiguration(Camera *camera,
 
 CameraConfiguration::Status SimpleCameraConfiguration::validate()
 {
-	const CameraSensor *sensor = data_->sensor_.get();
 	Status status = Valid;
 
 	if (config_.empty())
 		return Invalid;
 
-	Transform requestedTransform = transform;
-	combinedTransform_ = sensor->validateTransform(&transform);
-	if (transform != requestedTransform)
+	if (transform != Transform::Identity) {
+		transform = Transform::Identity;
 		status = Adjusted;
+	}
 
 	/* Cap the number of entries to the available streams. */
 	if (config_.size() > data_->streams_.size()) {
@@ -1045,7 +1038,7 @@ SimplePipelineHandler::SimplePipelineHandler(CameraManager *manager)
 }
 
 std::unique_ptr<CameraConfiguration>
-SimplePipelineHandler::generateConfiguration(Camera *camera, Span<const StreamRole> roles)
+SimplePipelineHandler::generateConfiguration(Camera *camera, const StreamRoles &roles)
 {
 	SimpleCameraData *data = cameraData(camera);
 	std::unique_ptr<CameraConfiguration> config =
@@ -1123,8 +1116,7 @@ int SimplePipelineHandler::configure(Camera *camera, CameraConfiguration *c)
 	format.mbus_code = pipeConfig->code;
 	format.size = pipeConfig->sensorSize;
 
-	ret = data->setupFormats(&format, V4L2Subdevice::ActiveFormat,
-				 config->combinedTransform());
+	ret = data->setupFormats(&format, V4L2Subdevice::ActiveFormat);
 	if (ret < 0)
 		return ret;
 

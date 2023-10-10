@@ -4,8 +4,8 @@
  *
  * request.h - Request class private data
  */
-
-#pragma once
+#ifndef __LIBCAMERA_INTERNAL_REQUEST_H__
+#define __LIBCAMERA_INTERNAL_REQUEST_H__
 
 #include <chrono>
 #include <map>
@@ -62,3 +62,5 @@ private:
 };
 
 } /* namespace libcamera */
+
+#endif /* __LIBCAMERA_INTERNAL_REQUEST_H__ */

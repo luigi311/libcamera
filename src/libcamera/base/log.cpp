@@ -21,7 +21,6 @@
 #include <libcamera/logging.h>
 
 #include <libcamera/base/backtrace.h>
-#include <libcamera/base/mutex.h>
 #include <libcamera/base/thread.h>
 #include <libcamera/base/utils.h>
 
@@ -789,8 +788,6 @@ LogCategory *Logger::findCategory(const char *name) const
  */
 LogCategory *LogCategory::create(const char *name)
 {
-	static Mutex mutex_;
-	MutexLocker locker(mutex_);
 	LogCategory *category = Logger::instance()->findCategory(name);
 
 	if (!category) {

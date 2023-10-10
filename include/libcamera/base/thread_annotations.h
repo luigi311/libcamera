@@ -7,8 +7,6 @@
 
 #pragma once
 
-#include <libcamera/base/private.h>
-
 /*
  * Enable thread safety attributes only with clang.
  * The attributes can be safely erased when compiling with other compilers.

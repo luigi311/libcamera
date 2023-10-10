@@ -66,6 +66,7 @@ ExperimentalAutoDetectBinPacking: false
 FixNamespaceComments: true
 ForEachMacros:
   - 'udev_list_entry_foreach'
+SortIncludes: true
 IncludeBlocks: Regroup
 IncludeCategories:
   # Headers matching the name of the component are matched automatically.

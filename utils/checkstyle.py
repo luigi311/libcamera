@@ -191,9 +191,6 @@ class CommitFile:
         else:
             self.__filename = info[1]
 
-    def __repr__(self):
-        return f'{self.__status} {self.__filename}'
-
     @property
     def filename(self):
         return self.__filename
@@ -206,30 +203,16 @@ class CommitFile:
 class Commit:
     def __init__(self, commit):
         self.commit = commit
-        self._trailers = []
         self._parse()
-
-    def _parse_trailers(self, lines):
-        for index in range(1, len(lines)):
-            line = lines[index]
-            if not line:
-                break
-
-            self._trailers.append(line)
-
-        return index
 
     def _parse(self):
         # Get the commit title and list of files.
-        ret = subprocess.run(['git', 'show', '--format=%s%n%(trailers:only,unfold)', '--name-status',
+        ret = subprocess.run(['git', 'show', '--pretty=oneline', '--name-status',
                               self.commit],
                              stdout=subprocess.PIPE).stdout.decode('utf-8')
-        lines = ret.splitlines()
-
-        self._title = lines[0]
-
-        index = self._parse_trailers(lines)
-        self._files = [CommitFile(f) for f in lines[index:] if f]
+        files = ret.splitlines()
+        self._files = [CommitFile(f) for f in files[1:]]
+        self._title = files[0]
 
     def files(self, filter='AMR'):
         return [f.filename for f in self._files if f.status in filter]
@@ -237,10 +220,6 @@ class Commit:
     @property
     def title(self):
         return self._title
-
-    @property
-    def trailers(self):
-        return self._trailers
 
     def get_diff(self, top_level, filename):
         diff = subprocess.run(['git', 'diff', '%s~..%s' % (self.commit, self.commit),
@@ -270,21 +249,15 @@ class StagedChanges(Commit):
         return parse_diff(diff.splitlines(True))
 
 
-class Amendment(Commit):
+class Amendment(StagedChanges):
     def __init__(self):
-        Commit.__init__(self, '')
+        StagedChanges.__init__(self)
 
     def _parse(self):
-        # Create a title using HEAD commit and parse the trailers.
-        ret = subprocess.run(['git', 'show', '--format=%H %s%n%(trailers:only,unfold)',
-                             '--no-patch'],
+        # Create a title using HEAD commit
+        ret = subprocess.run(['git', 'show', '--pretty=oneline', '--no-patch'],
                              stdout=subprocess.PIPE).stdout.decode('utf-8')
-        lines = ret.splitlines()
-
-        self._title = 'Amendment of ' + lines[0].strip()
-
-        self._parse_trailers(lines)
-
+        self._title = 'Amendment of ' + ret.strip()
         # Extract the list of modified files
         ret = subprocess.run(['git', 'diff', '--staged', '--name-status', 'HEAD~'],
                              stdout=subprocess.PIPE).stdout.decode('utf-8')
@@ -325,10 +298,8 @@ class CommitChecker(metaclass=ClassRegistry):
     # Class methods
     #
     @classmethod
-    def checkers(cls, names):
+    def checkers(cls):
         for checker in cls.subclasses:
-            if names and checker.__name__ not in names:
-                continue
             yield checker
 
 
@@ -382,7 +353,7 @@ class HeaderAddChecker(CommitChecker):
 
 
 class TitleChecker(CommitChecker):
-    prefix_regex = re.compile(r'^([a-zA-Z0-9_.-]+: )+')
+    prefix_regex = re.compile(r'[0-9a-f]+ (([a-zA-Z0-9_.-]+: )+)')
     release_regex = re.compile(r'libcamera v[0-9]+\.[0-9]+\.[0-9]+')
 
     @classmethod
@@ -412,7 +383,7 @@ class TitleChecker(CommitChecker):
             if not prefix:
                 continue
 
-            prefix = prefix.group(0)
+            prefix = prefix.group(1)
             if prefix in prefixes:
                 prefixes[prefix] += 1
             else:
@@ -448,69 +419,6 @@ class TitleChecker(CommitChecker):
                             'possible candidates are ' + candidates)]
 
 
-class TrailersChecker(CommitChecker):
-    commit_regex = re.compile(r'[0-9a-f]{12}[0-9a-f]* \(".*"\)')
-
-    coverity_regex = re.compile(r'Coverity CID=.*')
-
-    # Simple e-mail address validator regex, with an additional trailing
-    # comment. The complexity of a full RFC6531 validator isn't worth the
-    # additional invalid addresses it would reject.
-    email_regex = re.compile(r'[^<]+ <[^@>]+@[^>]+>( # .*)?')
-
-    link_regex = re.compile(r'https?://.*')
-
-    @staticmethod
-    def validate_reported_by(value):
-        if TrailersChecker.email_regex.fullmatch(value):
-            return True
-        if TrailersChecker.coverity_regex.fullmatch(value):
-            return True
-        return False
-
-    known_trailers = {
-        'Acked-by': email_regex,
-        'Bug': link_regex,
-        'Fixes': commit_regex,
-        'Link': link_regex,
-        'Reported-by': validate_reported_by,
-        'Reviewed-by': email_regex,
-        'Signed-off-by': email_regex,
-        'Suggested-by': email_regex,
-        'Tested-by': email_regex,
-    }
-
-    trailer_regex = re.compile(r'([A-Z][a-zA-Z-]*)\s*:\s*(.*)')
-
-    @classmethod
-    def check(cls, commit, top_level):
-        issues = []
-
-        for trailer in commit.trailers:
-            match = TrailersChecker.trailer_regex.fullmatch(trailer)
-            if not match:
-                issues.append(CommitIssue(f"Malformed commit trailer '{trailer}'"))
-                continue
-
-            key, value = match.groups()
-
-            validator = TrailersChecker.known_trailers.get(key)
-            if not validator:
-                issues.append(CommitIssue(f"Invalid commit trailer key '{key}'"))
-                continue
-
-            if isinstance(validator, re.Pattern):
-                valid = bool(validator.fullmatch(value))
-            else:
-                valid = validator(value)
-
-            if not valid:
-                issues.append(CommitIssue(f"Malformed value '{value}' for commit trailer '{key}'"))
-                continue
-
-        return issues
-
-
 # ------------------------------------------------------------------------------
 # Style Checkers
 #
@@ -525,10 +433,8 @@ class StyleChecker(metaclass=ClassRegistry):
     # Class methods
     #
     @classmethod
-    def checkers(cls, filename, names):
+    def checkers(cls, filename):
         for checker in cls.subclasses:
-            if names and checker.__name__ not in names:
-                continue
             if checker.supports(filename):
                 yield checker
 
@@ -708,10 +614,8 @@ class Formatter(metaclass=ClassRegistry):
     # Class methods
     #
     @classmethod
-    def formatters(cls, filename, names):
+    def formatters(cls, filename):
         for formatter in cls.subclasses:
-            if names and formatter.__name__ not in names:
-                continue
             if formatter.supports(filename):
                 yield formatter
 
@@ -873,7 +777,7 @@ class StripTrailingSpaceFormatter(Formatter):
 # Style checking
 #
 
-def check_file(top_level, commit, filename, checkers):
+def check_file(top_level, commit, filename):
     # Extract the line numbers touched by the commit.
     commit_diff = commit.get_diff(top_level, filename)
 
@@ -890,7 +794,7 @@ def check_file(top_level, commit, filename, checkers):
     after = commit.get_file(filename)
 
     formatted = after
-    for formatter in Formatter.formatters(filename, checkers):
+    for formatter in Formatter.formatters(filename):
         formatted = formatter.format(filename, formatted)
 
     after = after.splitlines(True)
@@ -904,7 +808,7 @@ def check_file(top_level, commit, filename, checkers):
 
     # Check for code issues not related to formatting.
     issues = []
-    for checker in StyleChecker.checkers(filename, checkers):
+    for checker in StyleChecker.checkers(filename):
         checker = checker(after)
         for hunk in commit_diff:
             issues += checker.check(hunk.side('to').touched)
@@ -932,17 +836,16 @@ def check_file(top_level, commit, filename, checkers):
     return len(formatted_diff) + len(issues)
 
 
-def check_style(top_level, commit, checkers):
-    title = commit.commit + ' ' + commit.title
-    separator = '-' * len(title)
+def check_style(top_level, commit):
+    separator = '-' * len(commit.title)
     print(separator)
-    print(title)
+    print(commit.title)
     print(separator)
 
     issues = 0
 
     # Apply the commit checkers first.
-    for checker in CommitChecker.checkers(checkers):
+    for checker in CommitChecker.checkers():
         for issue in checker.check(commit, top_level):
             print('%s%s%s' % (Colours.fg(Colours.Yellow), issue.msg, Colours.reset()))
             issues += 1
@@ -954,7 +857,7 @@ def check_style(top_level, commit, checkers):
     files = [f for f in commit.files() if len([p for p in patterns if fnmatch.fnmatch(os.path.basename(f), p)])]
 
     for f in files:
-        issues += check_file(top_level, commit, f, checkers)
+        issues += check_file(top_level, commit, f)
 
     if issues == 0:
         print('No issue detected')
@@ -1004,8 +907,6 @@ def main(argv):
 
     # Parse command line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--checkers', '-c', type=str,
-                        help='Specify which checkers to run as a comma-separated list. Defaults to all checkers')
     parser.add_argument('--staged', '-s', action='store_true',
                         help='Include the changes in the index. Defaults to False')
     parser.add_argument('--amend', '-a', action='store_true',
@@ -1013,9 +914,6 @@ def main(argv):
     parser.add_argument('revision_range', type=str, default=None, nargs='?',
                         help='Revision range (as defined by git rev-parse). Defaults to HEAD if not specified.')
     args = parser.parse_args(argv[1:])
-
-    if args.checkers:
-        args.checkers = args.checkers.split(',')
 
     # Check for required dependencies.
     for command, mandatory in dependencies.items():
@@ -1050,7 +948,7 @@ def main(argv):
 
     issues = 0
     for commit in commits:
-        issues += check_style(top_level, commit, args.checkers)
+        issues += check_style(top_level, commit)
         print('')
 
     if issues:

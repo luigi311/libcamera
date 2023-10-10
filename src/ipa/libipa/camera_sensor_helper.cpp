@@ -439,11 +439,6 @@ public:
 };
 REGISTER_CAMERA_SENSOR_HELPER("imx296", CameraSensorHelperImx296)
 
-class CameraSensorHelperImx327 : public CameraSensorHelperImx290
-{
-};
-REGISTER_CAMERA_SENSOR_HELPER("imx327", CameraSensorHelperImx327)
-
 class CameraSensorHelperImx477 : public CameraSensorHelper
 {
 public:
@@ -454,21 +449,6 @@ public:
 	}
 };
 REGISTER_CAMERA_SENSOR_HELPER("imx477", CameraSensorHelperImx477)
-
-class CameraSensorHelperOv2685 : public CameraSensorHelper
-{
-public:
-	CameraSensorHelperOv2685()
-	{
-		/*
-		 * The Sensor Manual doesn't appear to document the gain model.
-		 * This has been validated with some empirical testing only.
-		 */
-		gainType_ = AnalogueGainLinear;
-		gainConstants_.linear = { 1, 0, 0, 128 };
-	}
-};
-REGISTER_CAMERA_SENSOR_HELPER("ov2685", CameraSensorHelperOv2685)
 
 class CameraSensorHelperOv2740 : public CameraSensorHelper
 {
@@ -502,17 +482,6 @@ public:
 	}
 };
 REGISTER_CAMERA_SENSOR_HELPER("ov5640", CameraSensorHelperOv5640)
-
-class CameraSensorHelperOv5647 : public CameraSensorHelper
-{
-public:
-	CameraSensorHelperOv5647()
-	{
-		gainType_ = AnalogueGainLinear;
-		gainConstants_.linear = { 1, 0, 0, 16 };
-	}
-};
-REGISTER_CAMERA_SENSOR_HELPER("ov5647", CameraSensorHelperOv5647)
 
 class CameraSensorHelperOv5670 : public CameraSensorHelper
 {

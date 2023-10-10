@@ -55,7 +55,7 @@ CameraSession::CameraSession(CameraManager *cm,
 		return;
 	}
 
-	std::vector<StreamRole> roles = StreamKeyValueParser::roles(options_[OptStream]);
+	StreamRoles roles = StreamKeyValueParser::roles(options_[OptStream]);
 
 	std::unique_ptr<CameraConfiguration> config =
 		camera_->generateConfiguration(roles);

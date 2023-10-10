@@ -47,8 +47,9 @@ namespace ipa::ipu3::algorithms {
 
 LOG_DEFINE_CATEGORY(IPU3Agc)
 
-/* Minimum limit for analogue gain value */
+/* Limits for analogue gain values */
 static constexpr double kMinAnalogueGain = 1.0;
+static constexpr double kMaxAnalogueGain = 8.0;
 
 /* \todo Honour the FrameDurationLimits control instead of hardcoding a limit */
 static constexpr utils::Duration kMaxShutterSpeed = 60ms;
@@ -96,10 +97,10 @@ int Agc::configure(IPAContext &context,
 				    kMaxShutterSpeed);
 
 	minAnalogueGain_ = std::max(configuration.agc.minAnalogueGain, kMinAnalogueGain);
-	maxAnalogueGain_ = configuration.agc.maxAnalogueGain;
+	maxAnalogueGain_ = std::min(configuration.agc.maxAnalogueGain, kMaxAnalogueGain);
 
 	/* Configure the default exposure and gain. */
-	activeState.agc.gain = minAnalogueGain_;
+	activeState.agc.gain = std::max(minAnalogueGain_, kMinAnalogueGain);
 	activeState.agc.exposure = 10ms / configuration.sensor.lineDuration;
 
 	frameCount_ = 0;

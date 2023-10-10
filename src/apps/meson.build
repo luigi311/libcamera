@@ -18,5 +18,3 @@ subdir('lc-compliance')
 
 subdir('cam')
 subdir('qcam')
-
-subdir('ipa-verify')
