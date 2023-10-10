@@ -57,6 +57,11 @@ struct IPASessionConfiguration {
 
 struct IPAActiveState {
 	struct {
+		uint32_t lensPosition;
+		bool applyLensCtrls;
+	} af;
+
+	struct {
 		struct {
 			uint32_t exposure;
 			double gain;

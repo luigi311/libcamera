@@ -32,6 +32,7 @@
 #include <libcamera/ipa/rkisp1_ipa_proxy.h>
 
 #include "libcamera/internal/camera.h"
+#include "libcamera/internal/camera_lens.h"
 #include "libcamera/internal/camera_sensor.h"
 #include "libcamera/internal/delayed_controls.h"
 #include "libcamera/internal/device_enumerator.h"
@@ -113,6 +114,7 @@ private:
 	void paramFilled(unsigned int frame);
 	void setSensorControls(unsigned int frame,
 			       const ControlList &sensorControls);
+	void setLensControls(const ControlList &lensControls);
 
 	void metadataReady(unsigned int frame, const ControlList &metadata);
 };
@@ -341,6 +343,7 @@ int RkISP1CameraData::loadIPA(unsigned int hwRevision)
 		return -ENOENT;
 
 	ipa_->setSensorControls.connect(this, &RkISP1CameraData::setSensorControls);
+	ipa_->setLensControls.connect(this, &RkISP1CameraData::setLensControls);
 	ipa_->paramsBufferReady.connect(this, &RkISP1CameraData::paramFilled);
 	ipa_->metadataReady.connect(this, &RkISP1CameraData::metadataReady);
 
@@ -402,6 +405,20 @@ void RkISP1CameraData::setSensorControls([[maybe_unused]] unsigned int frame,
 					 const ControlList &sensorControls)
 {
 	delayedCtrls_->push(sensorControls);
+}
+
+void RkISP1CameraData::setLensControls(const ControlList &lensControls)
+{
+	CameraLens *focusLens = sensor_->focusLens();
+	if (!focusLens)
+		return;
+
+	if (!lensControls.contains(V4L2_CID_FOCUS_ABSOLUTE))
+		return;
+
+	const ControlValue &focusValue = lensControls.get(V4L2_CID_FOCUS_ABSOLUTE);
+
+	focusLens->setFocusPosition(focusValue.get<int32_t>());
 }
 
 void RkISP1CameraData::metadataReady(unsigned int frame, const ControlList &metadata)
@@ -819,6 +836,10 @@ int PipelineHandlerRkISP1::configure(Camera *camera, CameraConfiguration *c)
 		return ret;
 
 	ipaConfig.sensorControls = data->sensor_->controls();
+
+	CameraLens *lens = data->sensor_->focusLens();
+	if (lens)
+		ipaConfig.lensControls = lens->controls();
 
 	ret = data->ipa_->configure(ipaConfig, streamConfig, &data->controlInfo_);
 	if (ret) {

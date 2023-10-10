@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <math.h>
+#include <optional>
 #include <queue>
 #include <stdint.h>
 #include <string.h>
@@ -80,6 +81,7 @@ private:
 	std::map<unsigned int, MappedFrameBuffer> mappedBuffers_;
 
 	ControlInfoMap sensorControls_;
+	std::optional<ControlInfoMap> lensControls_;
 
 	/* Interface to the Camera Helper */
 	std::unique_ptr<CameraSensorHelper> camHelper_;
@@ -107,11 +109,17 @@ const IPAHwSettings ipaHwSettingsV12{
 /* List of controls handled by the RkISP1 IPA */
 const ControlInfoMap::Map rkisp1Controls{
 	{ &controls::AeEnable, ControlInfo(false, true) },
+	{ &controls::AfMetering, ControlInfo(controls::AfMeteringValues) },
+	{ &controls::AfMode, ControlInfo(controls::AfModeValues) },
+	{ &controls::AfPause, ControlInfo(controls::AfPauseValues) },
+	{ &controls::AfTrigger, ControlInfo(controls::AfTriggerValues) },
+	{ &controls::AfWindows, ControlInfo(Rectangle{}, Rectangle(65535, 65535, 65535, 65535), Rectangle{}) },
 	{ &controls::AwbEnable, ControlInfo(false, true) },
 	{ &controls::ColourGains, ControlInfo(0.0f, 3.996f, 1.0f) },
 	{ &controls::Brightness, ControlInfo(-1.0f, 0.993f, 0.0f) },
 	{ &controls::Contrast, ControlInfo(0.0f, 1.993f, 1.0f) },
 	{ &controls::Saturation, ControlInfo(0.0f, 1.993f, 1.0f) },
+	{ &controls::LensPosition, ControlInfo(0.0f, 2147483647.0f) },
 	{ &controls::Sharpness, ControlInfo(0.0f, 10.0f, 1.0f) },
 	{ &controls::draft::NoiseReductionMode, ControlInfo(controls::draft::NoiseReductionModeValues) },
 };
@@ -217,6 +225,9 @@ int IPARkISP1::configure(const IPAConfigInfo &ipaConfig,
 {
 	sensorControls_ = ipaConfig.sensorControls;
 
+	if (!ipaConfig.lensControls.empty())
+		lensControls_ = ipaConfig.lensControls;
+
 	const auto itExp = sensorControls_.find(V4L2_CID_EXPOSURE);
 	int32_t minExposure = itExp->second.min().get<int32_t>();
 	int32_t maxExposure = itExp->second.max().get<int32_t>();
@@ -263,6 +274,10 @@ int IPARkISP1::configure(const IPAConfigInfo &ipaConfig,
 			const PixelFormatInfo &format = PixelFormatInfo::info(pixelFormat);
 			return format.colourEncoding == PixelFormatInfo::ColourEncodingRAW;
 		});
+
+	/* Lens position is unknown at the startup, so initilize the variable
+	 * that holds the current position to something out of the range. */
+	context_.activeState.af.lensPosition = std::numeric_limits<int32_t>::max();
 
 	for (auto const &a : algorithms()) {
 		Algorithm *algo = static_cast<Algorithm *>(a.get());
@@ -446,6 +461,14 @@ void IPARkISP1::setControls(unsigned int frame)
 	ctrls.set(V4L2_CID_ANALOGUE_GAIN, static_cast<int32_t>(gain));
 
 	setSensorControls.emit(frame, ctrls);
+
+	if (lensControls_ && context_.activeState.af.applyLensCtrls) {
+		context_.activeState.af.applyLensCtrls = false;
+		ControlList lensCtrls(*lensControls_);
+		lensCtrls.set(V4L2_CID_FOCUS_ABSOLUTE,
+			      static_cast<int32_t>(context_.activeState.af.lensPosition));
+		setLensControls.emit(lensCtrls);
+	}
 }
 
 } /* namespace ipa::rkisp1 */
