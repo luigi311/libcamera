@@ -295,8 +295,12 @@ void AfHillClimbing::afCoarseScan()
 
 void AfHillClimbing::afSearch()
 {
-    double tolerance = (maxVcmPosition_ - minVcmPosition_) * searchTolerance_;
-    if (goldenSectionSearch(minVcmPosition_, maxVcmPosition_, tolerance)) {
+	/* Set minimum tolerance of 2 */
+	if (tolerance_ < 2) {
+		tolerance_ = 2;
+	}
+
+    if (goldenSectionSearch()) {
         LOG(Af, Debug) << "AF found the best focus position!";
         state_ = controls::AfStateFocused;
     }
@@ -316,13 +320,17 @@ void AfHillClimbing::afFineScan()
     }
 }
 
-bool AfHillClimbing::goldenSectionSearch(uint32_t low, uint32_t high, double tolerance)
+bool AfHillClimbing::goldenSectionSearch()
 {
+	/* Set the search range between min and max vcm positions */
+	uint32_t low = minVcmPosition_;
+	uint32_t high = maxVcmPosition_;
+
 	uint32_t x1, x2;
     double f1, f2;
 
-    x1 = high - (high - low) / phi_;
-    x2 = low + (high - low) / phi_;
+    x1 = floor(high - (high - low) / phi_);
+    x2 = floor(low + (high - low) / phi_);
 
 	lensPosition_ = x1;
     f1 = currentContrast_;
@@ -330,12 +338,12 @@ bool AfHillClimbing::goldenSectionSearch(uint32_t low, uint32_t high, double tol
 	lensPosition_ = x2;
 	f2 = currentContrast_;
 	
-    while (abs(high - low) > tolerance) {
+    while (abs(high - low) > tolerance_) {
         if (f1 < f2) {
             low = x1;
             x1 = x2;
             f1 = f2;
-            x2 = low + (high - low) / phi_;
+            x2 = floor(low + (high - low) / phi_);
             
 			lensPosition_ = x2;
 			f2 = currentContrast_;
@@ -343,7 +351,7 @@ bool AfHillClimbing::goldenSectionSearch(uint32_t low, uint32_t high, double tol
             high = x2;
             x2 = x1;
             f2 = f1;
-            x1 = high - (high - low) / phi_;
+            x1 = floor(high - (high - low) / phi_);
             lensPosition_ = x1;
 			f1 = currentContrast_;
         }

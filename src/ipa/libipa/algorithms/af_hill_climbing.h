@@ -59,13 +59,15 @@ private:
 	bool afIsOutOfFocus();
 	bool shouldSkipFrame();
 	uint32_t calculateAdaptiveStep(uint32_t baseStep);
-	bool goldenSectionSearch(uint32_t low, uint32_t high, double tolerance);
+	bool goldenSectionSearch();
 
 	controls::AfModeEnum mode_ = controls::AfModeManual;
 	controls::AfStateEnum state_ = controls::AfStateIdle;
 	controls::AfPauseStateEnum pauseState_ = controls::AfPauseStateRunning;
 	
 	const double searchTolerance_ = 0.01;
+	uint32_t tolerance_ = floor((maxVcmPosition_ - minVcmPosition_) * searchTolerance_);
+	/* The golden ratio. */
 	const double phi_ = (1.0 + std::sqrt(5.0)) / 2.0;
 	uint32_t adaptiveStep_ = 0;
 
