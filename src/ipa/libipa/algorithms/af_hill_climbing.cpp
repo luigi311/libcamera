@@ -133,8 +133,7 @@ uint32_t AfHillClimbing::processAutofocus(double currentContrast)
 void AfHillClimbing::processAutoMode()
 {
 	if (state_ == controls::AfStateScanning) {
-		afCoarseScan();
-		afFineScan();
+		afGoldenScan();
 	}
 }
 
@@ -145,8 +144,7 @@ void AfHillClimbing::processContinousMode()
 		return;
 
 	if (state_ == controls::AfStateScanning) {
-		afCoarseScan();
-		afFineScan();
+		afGoldenScan();
 		return;
 	}
 
@@ -271,92 +269,124 @@ void AfHillClimbing::setLensPosition(float lensPosition)
  * \copydoc libcamera::ipa::common::algorithms::AfInterface::setWindows
  */
 
-void AfHillClimbing::afCoarseScan()
-{
-	if (coarseCompleted_)
-		return;
-
-	if (afScan(coarseSearchStep_)) {
-		coarseCompleted_ = true;
-		maxContrast_ = 0;
-		lensPosition_ = lensPosition_ - (lensPosition_ * fineRange_);
-		previousContrast_ = 0;
-		maxStep_ = std::clamp(lensPosition_ + static_cast<uint32_t>((lensPosition_ * fineRange_)),
-				      0U, maxVcmPosition_);
-	}
-}
-
-void AfHillClimbing::afFineScan()
-{
-	if (!coarseCompleted_)
-		return;
-
-	if (afScan(fineSearchStep_)) {
-		LOG(Af, Debug) << "AF found the best focus position!";
-		state_ = controls::AfStateFocused;
-		fineCompleted_ = true;
-	}
-}
-
-bool AfHillClimbing::afScan(uint32_t minSteps)
-{
-	if (lensPosition_ + minSteps > maxStep_) {
-		/* If the max step is reached, move lens to the position. */
-		lensPosition_ = bestPosition_;
+bool AfHillClimbing::initialized() {
+	if (initialized_1_ && initialized_2_)
 		return true;
-	} else {
-		/*
-		* Find the maximum of the variance by estimating its
-		* derivative. If the direction changes, it means we have passed
-		* a maximum one step before.
-		*/
-		if ((currentContrast_ - maxContrast_) >= -(maxContrast_ * 0.1)) {
-			/*
-			* Positive and zero derivative:
-			* The variance is still increasing. The focus could be
-			* increased for the next comparison. Also, the max
-			* variance and previous focus value are updated.
-			*/
-			bestPosition_ = lensPosition_;
-			lensPosition_ += minSteps;
-			maxContrast_ = currentContrast_;
-		} else {
-			/*
-			* Negative derivative:
-			* The variance starts to decrease which means the maximum
-			* variance is found. Set focus step to previous good one
-			* then return immediately.
-			*/
-			lensPosition_ = bestPosition_;
-			return true;
+
+	if(!initialized_1_) {
+		if (lensPosition_ != minVcmPosition_) {
+			LOG(Af, Debug) << "Move lens to the minimum position";
+			lensPosition_ = minVcmPosition_;
+			return false;
 		}
+
+		LOG(Af, Debug) << "Initialize the first step" << " X1 " << currentContrast_;
+		/* Initialize the first step */
+		x1_lensPosition_ = lensPosition_;
+		low_ = lensPosition_;
+		f1_ = currentContrast_;
+		initialized_1_ = true;
+
+		return false;
 	}
 
-	previousContrast_ = currentContrast_;
-	LOG(Af, Debug) << "Previous step is " << bestPosition_
-		       << ", Current step is " << lensPosition_;
-	return false;
+	if(!initialized_2_) {
+		if (lensPosition_ != maxVcmPosition_) {
+			LOG(Af, Debug) << "Move lens to the maximum position";
+			lensPosition_ = maxVcmPosition_;
+			return false;
+		}
+
+		LOG(Af, Debug) << "Initialize the second step" << " X2 " << currentContrast_;
+		/* Initialize the second step */
+		x2_lensPosition_ = lensPosition_;
+		high_ = lensPosition_;
+		f2_ = currentContrast_;
+		initialized_2_ = true;
+	}
+
+	tolarence_ = (maxVcmPosition_ - minVcmPosition_) * searchTolerance_;
+
+	x1_ = high_ - (high_ - low_) / phi_;
+	x2_ = low_ + (high_ - low_) / phi_;
+
+	return true;
+}
+
+void AfHillClimbing::afGoldenScan()
+{
+	if(!initialized()) {
+		return;
+	}
+
+	if(abs(high_ - low_) < tolarence_)
+	{
+		LOG(Af, Debug) << "AF found the best focus position!";
+		maxContrast_ = currentContrast_;
+		state_ = controls::AfStateFocused;
+		return;
+	}
+
+	if(check_ == 1) { 
+		LOG(Af, Debug) << "Contrast " << currentContrast_;
+		f1_ = currentContrast_;
+		check_ = 0;
+	} else if (check_ == 2) {
+		LOG(Af, Debug) << "Contrast " << currentContrast_;
+		f2_ = currentContrast_;
+		check_ = 0;
+	}
+
+	if(f1_ < f2_) {
+		low_ = x1_;
+		x1_ = x2_;
+		f1_ = f2_;
+		x2_ = low_ + (high_ - low_) / phi_;
+		lensPosition_ = x2_;
+		check_ = 2;
+		LOG(Af, Debug) << "Move lens to the x2 " << x2_;
+	} else {
+		high_ = x2_;
+		x2_ = x1_;
+		f2_ = f1_;
+		x1_ = high_ - (high_ - low_) / phi_;
+		lensPosition_ = x1_;
+		check_ = 1;
+		LOG(Af, Debug) << "Move lens to the x1 " << x1_;
+	}
 }
 
 void AfHillClimbing::afReset()
 {
 	LOG(Af, Debug) << "Reset AF parameters";
 	lensPosition_ = minVcmPosition_;
-	maxStep_ = maxVcmPosition_;
 	state_ = controls::AfStateScanning;
-	previousContrast_ = 0.0;
-	coarseCompleted_ = false;
-	fineCompleted_ = false;
 	maxContrast_ = 0.0;
-	setFramesToSkip(1);
+	initialized_1_ = false;
+	initialized_2_ = false;
+
+	setFramesToSkip(2);
 }
 
 bool AfHillClimbing::afIsOutOfFocus()
 {
+	/*
+	* Calculate the variance change rate from the current contrast to the
+	* maximum contrast. If the rate is higher than the threshold, it means
+	* the sensor or the sharpness has changed to much for the current
+	* focus position.
+	*/
+	if(currentContrast_ > maxContrast_) {
+		maxContrast_ = currentContrast_;
+		return false;
+	}
+
 	const uint32_t diff_var = std::abs(currentContrast_ - maxContrast_);
 	const double var_ratio = diff_var / maxContrast_;
-	LOG(Af, Debug) << "Variance change rate: " << var_ratio
-		       << ", Current VCM step: " << lensPosition_;
+	LOG(Af, Debug) << "Current contrast: " << currentContrast_
+		    << ", Max contrast: " << maxContrast_ 
+			<< "Variance change rate: " << var_ratio
+		    << ", Current VCM step: " << lensPosition_;
 	if (var_ratio > maxChange_)
 		return true;
 	else

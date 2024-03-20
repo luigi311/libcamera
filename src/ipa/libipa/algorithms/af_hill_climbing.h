@@ -50,16 +50,41 @@ private:
 
 	void processAutoMode();
 	void processContinousMode();
-	void afCoarseScan();
+	bool initialized();
+	void afGoldenScan();
 	void afFineScan();
 	bool afScan(uint32_t minSteps);
 	void afReset();
+	bool aboveVarianceThreshold();
 	bool afIsOutOfFocus();
 	bool shouldSkipFrame();
 
 	controls::AfModeEnum mode_ = controls::AfModeManual;
 	controls::AfStateEnum state_ = controls::AfStateIdle;
 	controls::AfPauseStateEnum pauseState_ = controls::AfPauseStateRunning;
+
+
+	uint32_t low_ = 0;
+	uint32_t high_ = 0;
+
+	bool initialized_1_ = false;
+	uint32_t x1_lensPosition_ = 0;
+	uint32_t x1_ = 0;
+	double f1_ = 0;
+
+	bool initialized_2_ = false;
+	uint32_t x2_lensPosition_ = 0;
+	uint32_t x2_ = 0;
+	double f2_ = 0;
+
+	uint32_t check_ = 0;
+
+	const double searchTolerance_ = 0.01;
+	const double phi_ = 1.618033988;
+
+	double tolarence_;
+
+
 
 	/* VCM step configuration. It is the current setting of the VCM step. */
 	uint32_t lensPosition_ = 0;
@@ -69,14 +94,7 @@ private:
 	/* Current AF statistic contrast. */
 	double currentContrast_ = 0;
 	/* It is used to determine the derivative during scanning */
-	double previousContrast_ = 0;
 	double maxContrast_ = 0;
-	/* The designated maximum range of focus scanning. */
-	uint32_t maxStep_ = 0;
-	/* If the coarse scan completes, it is set to true. */
-	bool coarseCompleted_ = false;
-	/* If the fine scan completes, it is set to true. */
-	bool fineCompleted_ = false;
 
 	uint32_t framesToSkip_ = 0;
 
