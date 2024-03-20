@@ -9,7 +9,7 @@ algorithms:
       coarse-search-step: 30
       fine-search-step: 1
       fine-scan-range: 0.05
-      max-variance-change: 0.3
+      max-variance-change: 0.4
       wait-frames-lens: 2 # tuned for 30fps stream
       isp-threshold: 128
       isp-var-shift: 4
